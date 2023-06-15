@@ -7,4 +7,4 @@
 ```smali
 invoke-static {p0}, Lcom/SignatureKiller/Main;->Hook(Landroid/content/Context;)V
 ````
-- Once you have signed and installed the modified APK, make sure it passes the signature check.
+- Signed and install the modified APK, check it passes the signature check.
