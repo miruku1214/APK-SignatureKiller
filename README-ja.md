@@ -10,7 +10,7 @@
 - Android Studio または AIDE（APKのビルド用）
 
 # 注入方法
-- APKSignReader フォルダに入っている how-to-use_ja.txt に従い、APKSignReader.jar を使って元のAPKの署名データを読み取り、Javaソースコードの`com.SignatureKiller.Main`クラスの`Hook`メソッド内の`SignData`変数にコピペします。
+- APKSignReader フォルダに入っている how-to-use_ja.txt に従い、APKSignReader.jar を使って元のAPKの署名データを読み取り、ソースコードの`com.SignatureKiller.Main`クラスの`Hook`メソッド内の`SignData`変数にコピペします。
 - Android Studio または AIDE でビルドします。
 - ビルドしたAPK内のDEXファイルを改造APKに追加します。
 - 元のAPKをorig.apkに改名し、改造APKのassetsフォルダにコピーします。（フォルダがない場合は作成してください。）
