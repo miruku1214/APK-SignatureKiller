@@ -1,6 +1,6 @@
 # Needed tools
-- Java (For check signatures)
-- Android Studio or AIDE (For build core APK)
+- Java (For checking original signatures)
+- Android Studio or AIDE (For building core APK)
 # How to Inject
 - Follow the how-to-use.txt in the SignDataReader folder, read the original APK using SignDataReader.jar, and copy and paste it into the SignData variable in `com.SignatureKiller.Hook(android.content.Context)`.
 - Build with Android Studio or AIDE.
