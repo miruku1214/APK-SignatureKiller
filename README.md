@@ -14,7 +14,7 @@
 - Build with Android Studio or AIDE.
 - Add the DEX file from the built APK to the modded APK.
 - Rename the original APK to orig.apk and copy it to the assets folder of the modded APK (create the folder if it does not exist).
-- Paste the following smali code at the top of the entry point method where `this` is a class object that inherits from Context (onCreate, attachBaseContext, etc.):
+- Paste the following smali code at the top of the entry point method where `this(p0)` is a class object that inherits from Context (onCreate, attachBaseContext, etc.):
 ```smali
 invoke-static {p0}, Lcom/SignatureKiller/Main;->Hook(Landroid/content/Context;)V
 ```

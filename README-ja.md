@@ -14,7 +14,7 @@
 - Android Studio または AIDE でビルドします。
 - ビルドしたAPK内のDEXファイルを改造APKに追加します。
 - 元のAPKをorig.apkに改名し、改造APKのassetsフォルダにコピーします。（フォルダがない場合は作成してください。）
-- 以下のsmaliコードを、thisがContextを継承したクラスオブジェクトであるエントリポイントのメソッドのトップに貼り付けてください。（onCreate, attachBaseContext, など）
+- 以下のsmaliコードを、`this(p0)`がContextを継承したクラスオブジェクトであるエントリポイントのメソッドのトップに貼り付けてください。（onCreate, attachBaseContext, など）
 ```smali
 invoke-static {p0}, Lcom/SignatureKiller/Main;->Hook(Landroid/content/Context;)V
 ````
