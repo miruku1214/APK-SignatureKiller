@@ -2,8 +2,8 @@
 - This content was created for the purpose of deepening knowledge about Java, security, and APK structure. If you use this on someone else's app or game and encounter legal issues or data loss, the developer cannot take any responsibility, so please use it at your own risk.
 
 # Warning
-- The size of the APK will become twice as large after application.
-- After opening the modded APK, the free storage space of the original APK's size will be consumed.
+- After kill signature, doubles size of the APK.
+- After opening the modded APK, the free storage space of the original APK's size will be decreased.
 
 # Required Environment
 - Java (for reading signature data of the original APK)
@@ -18,4 +18,4 @@
 ```smali
 invoke-static {p0}, Lcom/SignatureKiller/Main;->Hook(Landroid/content/Context;)V
 ```
-- After signing and installing the modded APK, confirm if it passes the signature verification.
+- After signing and installing the modded APK, check if it passes the signature check.
