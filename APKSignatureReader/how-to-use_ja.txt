@@ -1,5 +1,7 @@
+# <APK_PATH> をAPKのパスに置き換えてください。
+
 java -jar APKSignReader.jar <APK_PATH>
 
-# もし java.lang.IllegalAccesError が発生した場合は、以下を試してみてください。
+# もし java.lang.IllegalAccesError が発生した場合は、以下を試してください。
 
 java --add-exports=java.base/sun.security.pkcs=ALL-UNNAMED --add-exports=java.base/sun.security.x509=ALL-UNNAMED -jar APKSignReader.jar <APK_PATH>

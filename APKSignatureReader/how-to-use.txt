@@ -1,3 +1,5 @@
+# Replace <APK_PATH> with your APK path
+
 java -jar APKSignReader.jar <APK_PATH>
 
 # If you got java.lang.IllegalAccesError, try below.
