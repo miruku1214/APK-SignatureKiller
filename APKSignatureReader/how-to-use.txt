@@ -1,5 +1,5 @@
 java -jar APKSignReader.jar <APK_PATH>
 
-# If you get java.lang.IllegalAccesError, use below.
+# If you got java.lang.IllegalAccesError, use below.
 
 java --add-exports java.base/sun.security.pkcs=ALL-UNNAMED --add-exports java.base/sun.security.x509=ALL-UNNAMED -jar APKSignReader.jar <APK_PATH>
