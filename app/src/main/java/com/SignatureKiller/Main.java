@@ -35,7 +35,7 @@ public class Main {
 	public static String CalcSHA256(InputStream is) throws IOException, NoSuchAlgorithmException {
 		String output;
 		int read;
-		byte[] buffer = new byte[8192];
+		byte[] buffer = new byte[4096];
 		
 		MessageDigest digest = MessageDigest.getInstance("SHA-256");
 		while ((read = is.read(buffer)) > 0) {
@@ -53,7 +53,7 @@ public class Main {
 	
 	public static void Hook(final Context context) {
 		final String ApkPath = "orig.apk";
-		final String SignData = "### PASTE SIGN DATA HERE ###";
+		final String SignData = "#### PASTE SIGN DATA HERE ####";
 		
 		try {
 			final File apkCopy = context.getFileStreamPath(ApkPath);
@@ -65,16 +65,21 @@ public class Main {
 				int apkOrigSize = apkOrigInput.available();
 				int apkCopySize = apkCopyInput.available();
 				
-				String apkOrigHash = CalcSHA256(apkOrigInput);
-				String apkCopyHash = CalcSHA256(apkCopyInput);
+				if (apkOrigSize != apkCopySize) {
+					apkCopy.delete();
+					copy = true;
+				} else {
+					String apkOrigHash = CalcSHA256(apkOrigInput);
+					String apkCopyHash = CalcSHA256(apkCopyInput);
+					
+					if (!apkOrigHash.equals(apkCopyHash)) {
+						apkCopy.delete();
+						copy = true;
+					}
+				}
 				
 				apkOrigInput.close();
 				apkCopyInput.close();
-				
-				if ((apkOrigSize != apkCopySize) || !(apkOrigHash.equals(apkCopyHash))) {
-					apkCopy.delete();
-					copy = true;
-				}
 			} else {
 				copy = true;
 			}
@@ -158,9 +163,17 @@ public class Main {
 			mPMF.setAccessible(true);
 			mPMF.set(pm, mPMProxy);
 			
-			Log.i("SignatureKiller", "Hook Success (" + context.getPackageName() + ")");
-		} catch (IOException | NoSuchAlgorithmException | ClassNotFoundException | NoSuchFieldException | NoSuchMethodException | InvocationTargetException | IllegalAccessException ex) {
-			Log.e("SignatureKiller", "Hook Failed (" + context.getPackageName() + ")");
+			Log.i("APK-SignatureKiller Core (" + context.getPackageName() + ")", "Hook Success");
+		} catch (
+			IOException
+			| NoSuchAlgorithmException
+			| ClassNotFoundException
+			| NoSuchFieldException
+			| NoSuchMethodException
+			| InvocationTargetException
+			| IllegalAccessException ex
+		) {
+			Log.e("APK-SignatureKiller Core (" + context.getPackageName() + ")", "Hook Failed (" + ex.getMessage() + ")");
 			ex.printStackTrace();
 		}
 	}
