@@ -8,7 +8,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.util.Base64;
 import android.util.Log;
-import android.widget.Toast;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.InvocationHandler;
@@ -27,16 +26,29 @@ import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.zip.CRC32;
 
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 
 public class Main {
-	private static long GetCRC32(final InputStream is) throws IOException {
-		CRC32 crc32 = new CRC32();
-		byte[] buf = new byte[1024];
-		int bytesRead = 0;
-		while ((bytesRead = is.read(buf)) != -1) {
-			crc32.update(buf, 0, bytesRead);
+	public static String CalcSHA256(InputStream is) throws IOException, NoSuchAlgorithmException {
+		String output;
+		int read;
+		byte[] buffer = new byte[8192];
+		
+		MessageDigest digest = MessageDigest.getInstance("SHA-256");
+		while ((read = is.read(buffer)) > 0) {
+			digest.update(buffer, 0, read);
 		}
-		return crc32.getValue();
+		byte[] hash = digest.digest();
+		BigInteger bigInt = new BigInteger(1, hash);
+		output = bigInt.toString(16);
+		while (output.length() < 64) {
+			output = "0" + output;
+		}
+
+		return output;
 	}
 	
 	public static void Hook(final Context context) {
@@ -50,18 +62,18 @@ public class Main {
 				InputStream apkOrigInput = context.getAssets().open(ApkPath);
 				InputStream apkCopyInput = new FileInputStream(apkCopy);
 				
-				final int apkOrigSize = apkOrigInput.available();
-				final int apkCopySize = apkCopyInput.available();
+				int apkOrigSize = apkOrigInput.available();
+				int apkCopySize = apkCopyInput.available();
 				
-				final long apkOrigHash = GetCRC32(apkOrigInput);
-				final long apkCopyHash = GetCRC32(apkCopyInput);
+				String apkOrigHash = CalcSHA256(apkOrigInput);
+				String apkCopyHash = CalcSHA256(apkCopyInput);
 				
 				apkOrigInput.close();
 				apkCopyInput.close();
 				
-				if ((apkOrigSize != apkCopySize) || (apkOrigHash != apkCopyHash)) {
-					copy = true;
+				if ((apkOrigSize != apkCopySize) || !(apkOrigHash.equals(apkCopyHash))) {
 					apkCopy.delete();
+					copy = true;
 				}
 			} else {
 				copy = true;
@@ -79,37 +91,38 @@ public class Main {
 				apkCopyOutput.close();
 			}
 			
-			Field sCurrentActivityThreadField = ClassLoader.getSystemClassLoader().loadClass("android.app.ActivityThread").getDeclaredField("sCurrentActivityThread");
-			sCurrentActivityThreadField.setAccessible(true);
-			Object sCurrentActivityThread = sCurrentActivityThreadField.get(null);
-			Field mPackagesField = sCurrentActivityThread.getClass().getDeclaredField("mPackages");
-			mPackagesField.setAccessible(true);
-			Object mPackages = ((WeakReference) ((Map) mPackagesField.get(sCurrentActivityThread)).get(context.getPackageName())).get();
-			Field mAppDirField = mPackages.getClass().getDeclaredField("mAppDir");
-			mAppDirField.setAccessible(true);
-			mAppDirField.set(mPackages, apkCopy.getAbsolutePath());
-			Field mApplicationInfoField = mPackages.getClass().getDeclaredField("mApplicationInfo");
-			mApplicationInfoField.setAccessible(true);
-			ApplicationInfo applicationInfo = (ApplicationInfo) mApplicationInfoField.get(mPackages);
+			Field sCurrentActivityThreadF = ClassLoader.getSystemClassLoader().loadClass("android.app.ActivityThread").getDeclaredField("sCurrentActivityThread");
+			sCurrentActivityThreadF.setAccessible(true);
+			Object sCurrentActivityThread = sCurrentActivityThreadF.get(null);
+			Field mPackagesF = sCurrentActivityThread.getClass().getDeclaredField("mPackages");
+			mPackagesF.setAccessible(true);
+			Object mPackages = ((WeakReference) ((Map) mPackagesF.get(sCurrentActivityThread)).get(context.getPackageName())).get();
+			Field mAppDirF = mPackages.getClass().getDeclaredField("mAppDir");
+			mAppDirF.setAccessible(true);
+			mAppDirF.set(mPackages, apkCopy.getAbsolutePath());
+			Field mApplicationInfoF = mPackages.getClass().getDeclaredField("mApplicationInfo");
+			mApplicationInfoF.setAccessible(true);
+			Object mApplicationInfo = mApplicationInfoF.get(mPackages);
+			ApplicationInfo applicationInfo = (ApplicationInfo) mApplicationInfo;
 			applicationInfo.publicSourceDir = apkCopy.getAbsolutePath();
 			applicationInfo.sourceDir = apkCopy.getAbsolutePath();
 			
 			DataInputStream dis = new DataInputStream(new ByteArrayInputStream(Base64.decode(SignData, 0)));
-			final byte[][] originalSigns = new byte[(dis.read() & 255)][];
+			final byte[][] originalSigns = new byte[(dis.read() & 0xFF)][];
 			for (int i = 0; i < originalSigns.length; i++) {
 				originalSigns[i] = new byte[dis.readInt()];
 				dis.readFully(originalSigns[i]);
 			}
-			Class<?> ActivityThreadClass = Class.forName("android.app.ActivityThread");
-			Object currentActivityThread = ActivityThreadClass.getDeclaredMethod("currentActivityThread").invoke(null);
-			Field sPackageManagerField = ActivityThreadClass.getDeclaredField("sPackageManager");
-			sPackageManagerField.setAccessible(true);
-			final Object sPackageManager = sPackageManagerField.get(currentActivityThread);
-			Class<?> IPackageManagerClass = Class.forName("android.content.pm.IPackageManager");
+			Class<?> ActivityThreadC = Class.forName("android.app.ActivityThread");
+			Object currentActivityThread = ActivityThreadC.getDeclaredMethod("currentActivityThread").invoke(null);
+			Field sPackageManagerF = ActivityThreadC.getDeclaredField("sPackageManager");
+			sPackageManagerF.setAccessible(true);
+			final Object sPackageManager = sPackageManagerF.get(currentActivityThread);
+			Class<?> IPackageManagerC = Class.forName("android.content.pm.IPackageManager");
 			final String packageName = context.getPackageName();
-			Object mPMProxy = Proxy.newProxyInstance(IPackageManagerClass.getClassLoader(), new Class[]{IPackageManagerClass}, new InvocationHandler() {
+			Object mPMProxy = Proxy.newProxyInstance(IPackageManagerC.getClassLoader(), new Class[]{IPackageManagerC}, new InvocationHandler() {
 				@Override 
-				public Object invoke(Object mPMProxy, Method method, Object[] args) throws Throwable {
+				public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 					PackageInfo info;
 					String methodName = method.getName();
 					if (methodName.equals("getPackageInfo") && (args[0] instanceof String) && (args[0].toString() == packageName) && ((info = (PackageInfo) method.invoke(sPackageManager, args)) != null)) {
@@ -139,14 +152,14 @@ public class Main {
 					}
 				}
 			});
-			sPackageManagerField.set(currentActivityThread, mPMProxy);
+			sPackageManagerF.set(currentActivityThread, mPMProxy);
 			PackageManager pm = context.getPackageManager();
-			Field mPMField = pm.getClass().getDeclaredField("mPM");
-			mPMField.setAccessible(true);
-			mPMField.set(pm, mPMProxy);
+			Field mPMF = pm.getClass().getDeclaredField("mPM");
+			mPMF.setAccessible(true);
+			mPMF.set(pm, mPMProxy);
 			
 			Log.i("SignatureKiller", "Hook Success (" + context.getPackageName() + ")");
-		} catch (IOException | ClassNotFoundException | NoSuchFieldException | NoSuchMethodException | InvocationTargetException | IllegalAccessException ex) {
+		} catch (IOException | NoSuchAlgorithmException | ClassNotFoundException | NoSuchFieldException | NoSuchMethodException | InvocationTargetException | IllegalAccessException ex) {
 			Log.e("SignatureKiller", "Hook Failed (" + context.getPackageName() + ")");
 			ex.printStackTrace();
 		}
