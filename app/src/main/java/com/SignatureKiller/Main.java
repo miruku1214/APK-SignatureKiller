@@ -32,6 +32,9 @@ import java.security.NoSuchAlgorithmException;
 
 
 public class Main {
+	private static final int GET_SIGNATURES = 0x40;
+	
+	
 	public static String CalcSHA256(InputStream is) throws IOException, NoSuchAlgorithmException {
 		String output;
 		int read;
@@ -56,8 +59,12 @@ public class Main {
 		final String SignData = "#### PASTE SIGN DATA HERE ####";
 		
 		try {
-			final File apkCopy = context.getFileStreamPath(ApkPath);
-			boolean copy = false;
+			File filesDir = context.getFilesDir();
+			filesDir.mkdirs();
+			
+			final File apkCopy = new File(filesDir, ApkPath);
+			
+			boolean copyOrReplace = false;
 			if (apkCopy.exists()) {
 				InputStream apkOrigInput = context.getAssets().open(ApkPath);
 				InputStream apkCopyInput = new FileInputStream(apkCopy);
@@ -66,30 +73,31 @@ public class Main {
 				int apkCopySize = apkCopyInput.available();
 				
 				if (apkOrigSize != apkCopySize) {
-					apkCopy.delete();
-					copy = true;
+					copyOrReplace = true;
 				} else {
 					String apkOrigHash = CalcSHA256(apkOrigInput);
 					String apkCopyHash = CalcSHA256(apkCopyInput);
 					
 					if (!apkOrigHash.equals(apkCopyHash)) {
-						apkCopy.delete();
-						copy = true;
+						copyOrReplace = true;
 					}
 				}
 				
 				apkOrigInput.close();
 				apkCopyInput.close();
 			} else {
-				copy = true;
+				copyOrReplace = true;
 			}
-			if (copy) {
+			if (copyOrReplace) {
+				if (apkCopy.exists()) {
+					apkCopy.delete();
+				}
 				InputStream apkOrigInput = context.getAssets().open(ApkPath);
 				OutputStream apkCopyOutput = new FileOutputStream(apkCopy);
 				byte[] buf = new byte[4096];
-				int bytesRead = 0;
-				while ((bytesRead = apkOrigInput.read(buf, 0, buf.length)) != -1) {
-					apkCopyOutput.write(buf, 0, bytesRead);
+				int read = 0;
+				while ((read = apkOrigInput.read(buf, 0, buf.length)) != -1) {
+					apkCopyOutput.write(buf, 0, read);
 					apkCopyOutput.flush();
 				}
 				apkOrigInput.close();
@@ -99,18 +107,22 @@ public class Main {
 			Field sCurrentActivityThreadF = ClassLoader.getSystemClassLoader().loadClass("android.app.ActivityThread").getDeclaredField("sCurrentActivityThread");
 			sCurrentActivityThreadF.setAccessible(true);
 			Object sCurrentActivityThread = sCurrentActivityThreadF.get(null);
+			
 			Field mPackagesF = sCurrentActivityThread.getClass().getDeclaredField("mPackages");
 			mPackagesF.setAccessible(true);
 			Object mPackages = ((WeakReference) ((Map) mPackagesF.get(sCurrentActivityThread)).get(context.getPackageName())).get();
+			
 			Field mAppDirF = mPackages.getClass().getDeclaredField("mAppDir");
 			mAppDirF.setAccessible(true);
 			mAppDirF.set(mPackages, apkCopy.getAbsolutePath());
+			
 			Field mApplicationInfoF = mPackages.getClass().getDeclaredField("mApplicationInfo");
 			mApplicationInfoF.setAccessible(true);
 			Object mApplicationInfo = mApplicationInfoF.get(mPackages);
+			
 			ApplicationInfo applicationInfo = (ApplicationInfo) mApplicationInfo;
-			applicationInfo.publicSourceDir = apkCopy.getAbsolutePath();
 			applicationInfo.sourceDir = apkCopy.getAbsolutePath();
+			applicationInfo.publicSourceDir = apkCopy.getAbsolutePath();
 			
 			DataInputStream dis = new DataInputStream(new ByteArrayInputStream(Base64.decode(SignData, 0)));
 			final byte[][] originalSigns = new byte[(dis.read() & 0xFF)][];
@@ -124,37 +136,46 @@ public class Main {
 			sPackageManagerF.setAccessible(true);
 			final Object sPackageManager = sPackageManagerF.get(currentActivityThread);
 			Class<?> IPackageManagerC = Class.forName("android.content.pm.IPackageManager");
-			final String packageName = context.getPackageName();
 			Object mPMProxy = Proxy.newProxyInstance(IPackageManagerC.getClassLoader(), new Class[]{IPackageManagerC}, new InvocationHandler() {
 				@Override 
 				public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-					PackageInfo info;
-					String methodName = method.getName();
-					if (methodName.equals("getPackageInfo") && (args[0] instanceof String) && (args[0].toString() == packageName) && ((info = (PackageInfo) method.invoke(sPackageManager, args)) != null)) {
-						if (info.signatures != null) {
-							info.signatures = new Signature[originalSigns.length];
-							for (int i = 0; i < info.signatures.length; i++) {
-								info.signatures[i] = new Signature(originalSigns[i]);
+					switch (method.getName()) {
+						case "getPackageInfo": {
+							String packageName = (String) args[0];
+							Integer flag = (Integer) args[1];
+							
+							if (packageName.equals(context.getPackageName())) {
+								PackageInfo info = (PackageInfo) method.invoke(sPackageManager, args);
+								if ((flag & GET_SIGNATURES) != 0) {
+									info.signatures = new Signature[originalSigns.length];
+									for (int i = 0; i < info.signatures.length; i++) {
+										info.signatures[i] = new Signature(originalSigns[i]);
+									}
+								}
+								info.applicationInfo.sourceDir = apkCopy.getAbsolutePath();
+								info.applicationInfo.publicSourceDir = apkCopy.getAbsolutePath();
+								return info;
 							}
-						}
-						if (info.applicationInfo != null) {
-							info.applicationInfo.sourceDir = apkCopy.getAbsolutePath();
-							info.applicationInfo.publicSourceDir = apkCopy.getAbsolutePath();
-						}
-						return info;
-					} else if (!methodName.equals("getApplicationInfo") || !(args[0] instanceof String) || args[0].toString() != packageName) {
-						if (methodName.equals("getPackageArchiveInfo") && (args[0] instanceof String) && args[0].toString().endsWith(".apk") && (args[0].toString() == packageName)) {
-							args[0] = apkCopy.getAbsolutePath();
-						}
-						return method.invoke(sPackageManager, args);
-					} else {
-						ApplicationInfo appInfo = (ApplicationInfo) method.invoke(sPackageManager, args);
-						if (appInfo != null) {
-							appInfo.sourceDir = apkCopy.getAbsolutePath();
-							appInfo.publicSourceDir = apkCopy.getAbsolutePath();
-						}
-						return appInfo;
+						} break;
+						case "getPackageArchiveInfo": {
+							String archivePath = (String) args[0];
+							Integer flag = (Integer) args[1];
+							
+							if (archivePath.equals(context.getApplicationInfo().sourceDir)) {
+								PackageInfo info = (PackageInfo) method.invoke(sPackageManager, args);
+								if ((flag & GET_SIGNATURES) != 0) {
+									info.signatures = new Signature[originalSigns.length];
+									for (int i = 0; i < info.signatures.length; i++) {
+										info.signatures[i] = new Signature(originalSigns[i]);
+									}
+								}
+								info.applicationInfo.sourceDir = apkCopy.getAbsolutePath();
+								info.applicationInfo.publicSourceDir = apkCopy.getAbsolutePath();
+								return info;
+							}
+						} break;
 					}
+					return method.invoke(sPackageManager, args);
 				}
 			});
 			sPackageManagerF.set(currentActivityThread, mPMProxy);
