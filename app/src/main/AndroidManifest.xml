@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest
-    package="com.SignatureKiller"
-    xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.INTERNET" />
-    <application
-        android:allowBackup="true"
-        android:label="SignatureKiller Core">
-    </application>
+	package="com.SignatureKiller"
+	xmlns:android="http://schemas.android.com/apk/res/android">
+	<uses-permission android:name="android.permission.INTERNET" />
+	<application
+		android:allowBackup="false"
+		android:label="SignatureKiller Core">
+	</application>
 </manifest>
