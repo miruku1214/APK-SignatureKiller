@@ -56,13 +56,13 @@ public class Main {
 				final long apkOrigHash = GetCRC32(apkOrigInput);
 				final long apkCopyHash = GetCRC32(apkCopyInput);
 				
+				apkOrigInput.close();
+				apkCopyInput.close();
+				
 				if ((apkOrigSize != apkCopySize) || (apkOrigHash != apkCopyHash)) {
 					copy = true;
 					apkCopy.delete();
 				}
-				
-				apkOrigInput.close();
-				apkCopyInput.close();
 			} else {
 				copy = true;
 			}
