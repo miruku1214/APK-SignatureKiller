@@ -10,8 +10,9 @@ import android.util.Base64;
 import android.util.Log;
 import android.widget.Toast;
 
-import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.io.IOException;
@@ -57,6 +58,7 @@ public class Main {
 				
 				if ((apkOrigSize != apkCopySize) || (apkOrigHash != apkCopyHash)) {
 					copy = true;
+					apkCopy.delete();
 				}
 				
 				apkOrigInput.close();
@@ -144,9 +146,9 @@ public class Main {
 			mPMField.set(pm, mPMProxy);
 			
 			Log.i("SignatureKiller", "Hook Success (" + context.getPackageName() + ")");
-		} catch (Exception e) {
+		} catch (IOException | ClassNotFoundException | NoSuchFieldException | NoSuchMethodException | InvocationTargetException | IllegalAccessException ex) {
 			Log.e("SignatureKiller", "Hook Failed (" + context.getPackageName() + ")");
-			e.printStackTrace();
+			ex.printStackTrace();
 		}
 	}
 }
