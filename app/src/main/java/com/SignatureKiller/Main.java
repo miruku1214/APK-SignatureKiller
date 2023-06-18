@@ -38,7 +38,7 @@ public class Main {
 	public static String CalcSHA256(InputStream is) throws IOException, NoSuchAlgorithmException {
 		String output;
 		int read;
-		byte[] buffer = new byte[4096];
+		byte[] buffer = new byte[8192];
 		
 		MessageDigest digest = MessageDigest.getInstance("SHA-256");
 		while ((read = is.read(buffer)) > 0) {
@@ -59,13 +59,22 @@ public class Main {
 		final String SignData = "#### PASTE SIGN DATA HERE ####";
 		
 		try {
+			DataInputStream dis = new DataInputStream(new ByteArrayInputStream(Base64.decode(SignData, Base64.DEFAULT)));
+			final byte[][] sign = new byte[(dis.read() & 0xFF)][];
+			for (int i = 0; i < sign.length; i++) {
+				sign[i] = new byte[dis.readInt()];
+				dis.readFully(sign[i]);
+			}
+			
 			File filesDir = context.getFilesDir();
 			filesDir.mkdirs();
 			
 			final File apkCopy = new File(filesDir, ApkPath);
 			
 			boolean copyOrReplace = false;
-			if (apkCopy.exists()) {
+			if (!apkCopy.exists()) {
+				copyOrReplace = true;
+			} else {
 				InputStream apkOrigInput = context.getAssets().open(ApkPath);
 				InputStream apkCopyInput = new FileInputStream(apkCopy);
 				
@@ -85,8 +94,6 @@ public class Main {
 				
 				apkOrigInput.close();
 				apkCopyInput.close();
-			} else {
-				copyOrReplace = true;
 			}
 			if (copyOrReplace) {
 				if (apkCopy.exists()) {
@@ -94,7 +101,7 @@ public class Main {
 				}
 				InputStream apkOrigInput = context.getAssets().open(ApkPath);
 				OutputStream apkCopyOutput = new FileOutputStream(apkCopy);
-				byte[] buf = new byte[4096];
+				byte[] buf = new byte[8192];
 				int read = 0;
 				while ((read = apkOrigInput.read(buf, 0, buf.length)) != -1) {
 					apkCopyOutput.write(buf, 0, read);
@@ -104,39 +111,34 @@ public class Main {
 				apkCopyOutput.close();
 			}
 			
-			Field sCurrentActivityThreadF = ClassLoader.getSystemClassLoader().loadClass("android.app.ActivityThread").getDeclaredField("sCurrentActivityThread");
-			sCurrentActivityThreadF.setAccessible(true);
-			Object sCurrentActivityThread = sCurrentActivityThreadF.get(null);
+			Class<?> ActivityThreadC = Class.forName("android.app.ActivityThread");
+			Method currentActivityThreadM = ActivityThreadC.getDeclaredMethod("currentActivityThread");
+			Object currentActivityThread = currentActivityThreadM.invoke(null);
 			
-			Field mPackagesF = sCurrentActivityThread.getClass().getDeclaredField("mPackages");
+			Field mPackagesF = currentActivityThread.getClass().getDeclaredField("mPackages");
 			mPackagesF.setAccessible(true);
-			Object mPackages = ((WeakReference) ((Map) mPackagesF.get(sCurrentActivityThread)).get(context.getPackageName())).get();
+			Object mPackages = mPackagesF.get(currentActivityThread);
 			
-			Field mAppDirF = mPackages.getClass().getDeclaredField("mAppDir");
+			Object loadedApk = ((Map<String, WeakReference<?>>) mPackages).get(context.getPackageName()).get();
+			
+			Field mAppDirF = loadedApk.getClass().getDeclaredField("mAppDir");
 			mAppDirF.setAccessible(true);
-			mAppDirF.set(mPackages, apkCopy.getAbsolutePath());
+			mAppDirF.set(loadedApk, apkCopy.getAbsolutePath());
 			
-			Field mApplicationInfoF = mPackages.getClass().getDeclaredField("mApplicationInfo");
+			Field mApplicationInfoF = loadedApk.getClass().getDeclaredField("mApplicationInfo");
 			mApplicationInfoF.setAccessible(true);
-			Object mApplicationInfo = mApplicationInfoF.get(mPackages);
+			Object mApplicationInfo = mApplicationInfoF.get(loadedApk);
 			
 			ApplicationInfo applicationInfo = (ApplicationInfo) mApplicationInfo;
 			applicationInfo.sourceDir = apkCopy.getAbsolutePath();
 			applicationInfo.publicSourceDir = apkCopy.getAbsolutePath();
 			
-			DataInputStream dis = new DataInputStream(new ByteArrayInputStream(Base64.decode(SignData, 0)));
-			final byte[][] originalSigns = new byte[(dis.read() & 0xFF)][];
-			for (int i = 0; i < originalSigns.length; i++) {
-				originalSigns[i] = new byte[dis.readInt()];
-				dis.readFully(originalSigns[i]);
-			}
-			Class<?> ActivityThreadC = Class.forName("android.app.ActivityThread");
-			Object currentActivityThread = ActivityThreadC.getDeclaredMethod("currentActivityThread").invoke(null);
 			Field sPackageManagerF = ActivityThreadC.getDeclaredField("sPackageManager");
 			sPackageManagerF.setAccessible(true);
 			final Object sPackageManager = sPackageManagerF.get(currentActivityThread);
+			
 			Class<?> IPackageManagerC = Class.forName("android.content.pm.IPackageManager");
-			Object mPMProxy = Proxy.newProxyInstance(IPackageManagerC.getClassLoader(), new Class[]{IPackageManagerC}, new InvocationHandler() {
+			Object mPMProxy = Proxy.newProxyInstance(IPackageManagerC.getClassLoader(), new Class[] {IPackageManagerC}, new InvocationHandler() {
 				@Override 
 				public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 					switch (method.getName()) {
@@ -147,9 +149,9 @@ public class Main {
 							if (packageName.equals(context.getPackageName())) {
 								PackageInfo info = (PackageInfo) method.invoke(sPackageManager, args);
 								if ((flag & GET_SIGNATURES) != 0) {
-									info.signatures = new Signature[originalSigns.length];
+									info.signatures = new Signature[sign.length];
 									for (int i = 0; i < info.signatures.length; i++) {
-										info.signatures[i] = new Signature(originalSigns[i]);
+										info.signatures[i] = new Signature(sign[i]);
 									}
 								}
 								info.applicationInfo.sourceDir = apkCopy.getAbsolutePath();
@@ -164,9 +166,9 @@ public class Main {
 							if (archivePath.equals(context.getApplicationInfo().sourceDir)) {
 								PackageInfo info = (PackageInfo) method.invoke(sPackageManager, args);
 								if ((flag & GET_SIGNATURES) != 0) {
-									info.signatures = new Signature[originalSigns.length];
+									info.signatures = new Signature[sign.length];
 									for (int i = 0; i < info.signatures.length; i++) {
-										info.signatures[i] = new Signature(originalSigns[i]);
+										info.signatures[i] = new Signature(sign[i]);
 									}
 								}
 								info.applicationInfo.sourceDir = apkCopy.getAbsolutePath();
@@ -179,7 +181,9 @@ public class Main {
 				}
 			});
 			sPackageManagerF.set(currentActivityThread, mPMProxy);
+			
 			PackageManager pm = context.getPackageManager();
+			
 			Field mPMF = pm.getClass().getDeclaredField("mPM");
 			mPMF.setAccessible(true);
 			mPMF.set(pm, mPMProxy);
