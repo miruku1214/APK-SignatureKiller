@@ -24,7 +24,6 @@ import java.io.OutputStream;
 import java.io.FileOutputStream;
 import java.lang.ref.WeakReference;
 import java.util.Map;
-import java.util.zip.CRC32;
 
 import java.math.BigInteger;
 import java.security.MessageDigest;
