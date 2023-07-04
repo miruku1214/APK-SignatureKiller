@@ -32,7 +32,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 
-public class Main {
+public final class Main {
 	private static Context context;
 	private static byte[][] sign;
 	private static File apkCopy;
