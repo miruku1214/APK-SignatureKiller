@@ -41,7 +41,7 @@ public final class Main {
 	private static Object CreatePMProxy(final Object pm) throws ClassNotFoundException {
 		Class<?> IPackageManagerC = Class.forName("android.content.pm.IPackageManager");
 		return Proxy.newProxyInstance(IPackageManagerC.getClassLoader(), new Class[] {IPackageManagerC}, new InvocationHandler() {
-			private final int GET_SIGNATURES = 0x40;
+			static final int GET_SIGNATURES = 0x40;
 			
 			@Override 
 			public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
